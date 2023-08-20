@@ -8,6 +8,9 @@ import puppeteer from 'puppeteer';
   // https://pptr.dev/guides/request-interception
   await page.setRequestInterception(true);
 
+  // https://pptr.dev/guides/debugging/#debugging-methods-for-client-code
+  page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+
   page.on('request', interceptedRequest => {
     // if (interceptedRequest.isInterceptResolutionHandled()) return;
     // if (
@@ -18,13 +21,21 @@ import puppeteer from 'puppeteer';
     // else interceptedRequest.continue();
 
     // request: https://8book.com/txt/9/138546/27121357991.html
-    console.debug('request:', interceptedRequest.url());
+    // console.debug('request:', interceptedRequest.url());
     interceptedRequest.continue();
   });
 
   // Navigate the page to a URL
   // await page.goto('https://8book.com/novelbooks/138546/');
   await page.goto('https://8book.com/read/138546/?271213');
+  await page.waitForFunction(() => {
+    console.debug('condtion:', document.querySelector("#text").textContent);
+    return document.querySelector("#text").textContent !== '';
+  }, { timeout: 10000 });
+
+  // page
+  //   .waitForSelector('#myId')
+  //   .then(() => console.log('got it'));
 
   const body = await page.content();
   // console.debug('body:', body);
