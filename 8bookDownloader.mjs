@@ -29,6 +29,9 @@ import puppeteer from 'puppeteer';
   const body = await page.content();
   // console.debug('body:', body);
 
+  // format html to text
+  // https://stackoverflow.com/questions/5002111/how-to-strip-html-tags-from-string-in-javascript
+
   // Set screen size
   //await page.setViewport({width: 1080, height: 1024});
 
