@@ -1,3 +1,5 @@
+import fs from 'fs';
+
 import puppeteer from 'puppeteer';
 
 (async () => {
@@ -72,7 +74,8 @@ import puppeteer from 'puppeteer';
   const txtContent = await bodyElement.evaluate(dom => dom.innerText);
   // console.debug('contentBody:', contentBody);
   // console.debug('txtContent:', txtContent);
-  console.debug('txtContent:', Buffer.from(txtContent).toString('utf-8'));
+  console.debug('txtContent:', txtContent);
+  fs.writeFileSync('./output.txt', txtContent);
 
   // debugger;
   // console.debug('body:', body);
