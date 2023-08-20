@@ -11,21 +11,27 @@ import puppeteer from 'puppeteer';
   // https://pptr.dev/guides/debugging/#debugging-methods-for-client-code
   // page.on('console', msg => console.log('PAGE LOG:', msg.text()));
 
-  page.on('request', interceptedRequest => {
-    // if (interceptedRequest.isInterceptResolutionHandled()) return;
-    // if (
-    //   interceptedRequest.url().endsWith('.png') ||
-    //   interceptedRequest.url().endsWith('.jpg')
-    // )
-    //   interceptedRequest.abort();
-    // else interceptedRequest.continue();
+  const txtUrlPromise = new Promise((res, rej) => {
+    page.on('request', interceptedRequest => {
+      // if (interceptedRequest.isInterceptResolutionHandled()) return;
+      // if (
+      //   interceptedRequest.url().endsWith('.png') ||
+      //   interceptedRequest.url().endsWith('.jpg')
+      // )
+      //   interceptedRequest.abort();
+      // else interceptedRequest.continue();
 
-    // request: https://8book.com/txt/9/138546/27121357991.html
-    // console.debug('request:', interceptedRequest.url());
-    if (interceptedRequest.url().startsWith('https://8book.com/txt/')) {
-      console.debug('url:', interceptedRequest.url());
-    }
-    interceptedRequest.continue();
+      // request: https://8book.com/txt/9/138546/27121357991.html
+      // console.debug('request:', interceptedRequest.url());
+      const url = interceptedRequest.url();
+      if (url.startsWith('https://8book.com/txt/')) {
+        // console.debug('url:', url);
+        res(url);
+        // return interceptedRequest.abort();
+      }
+      interceptedRequest.continue();
+    });
+    setTimeout(rej, 1000 * 10);
   });
 
   // Navigate the page to a URL
@@ -57,8 +63,16 @@ import puppeteer from 'puppeteer';
 
   // 3. start to get content
   await page.goto(hrefs[0]);
+  await page.content();
+  const txtUrl = await txtUrlPromise;
+  // console.debug('txtUrl:', txtUrl);
+  await page.goto(txtUrl);
   const contentBody = await page.content();
+  const bodyElement = await page.waitForSelector('body');
+  const txtContent = await bodyElement.evaluate(dom => dom.innerText);
   // console.debug('contentBody:', contentBody);
+  // console.debug('txtContent:', txtContent);
+  console.debug('txtContent:', Buffer.from(txtContent).toString('utf-8'));
 
   // debugger;
   // console.debug('body:', body);
