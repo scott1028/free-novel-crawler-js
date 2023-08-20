@@ -5,11 +5,29 @@ import puppeteer from 'puppeteer';
   const browser = await puppeteer.launch({ headless: 'new' });
   const page = await browser.newPage();
 
+  // https://pptr.dev/guides/request-interception
+  await page.setRequestInterception(true);
+
+  page.on('request', interceptedRequest => {
+    // if (interceptedRequest.isInterceptResolutionHandled()) return;
+    // if (
+    //   interceptedRequest.url().endsWith('.png') ||
+    //   interceptedRequest.url().endsWith('.jpg')
+    // )
+    //   interceptedRequest.abort();
+    // else interceptedRequest.continue();
+
+    // request: https://8book.com/txt/9/138546/27121357991.html
+    console.debug('request:', interceptedRequest.url());
+    interceptedRequest.continue();
+  });
+
   // Navigate the page to a URL
-  await page.goto('https://developer.chrome.com/');
+  // await page.goto('https://8book.com/novelbooks/138546/');
+  await page.goto('https://8book.com/read/138546/?271213');
 
   const body = await page.content();
-  console.debug('body:', body);
+  // console.debug('body:', body);
 
   // Set screen size
   //await page.setViewport({width: 1080, height: 1024});
