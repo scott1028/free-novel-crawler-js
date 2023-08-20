@@ -9,7 +9,7 @@ import puppeteer from 'puppeteer';
   await page.setRequestInterception(true);
 
   // https://pptr.dev/guides/debugging/#debugging-methods-for-client-code
-  page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+  // page.on('console', msg => console.log('PAGE LOG:', msg.text()));
 
   page.on('request', interceptedRequest => {
     // if (interceptedRequest.isInterceptResolutionHandled()) return;
@@ -22,12 +22,16 @@ import puppeteer from 'puppeteer';
 
     // request: https://8book.com/txt/9/138546/27121357991.html
     // console.debug('request:', interceptedRequest.url());
+    if (interceptedRequest.url().startsWith('https://8book.com/txt/')) {
+      console.debug('url:', interceptedRequest.url());
+    }
     interceptedRequest.continue();
   });
 
   // Navigate the page to a URL
   // await page.goto('https://8book.com/novelbooks/138546/');
-  await page.goto('https://8book.com/novelbooks/121051/');
+  const url = new URL('https://8book.com/novelbooks/121051/');
+  await page.goto(url.href);
   // await page.waitForFunction(() => {
   //   console.debug('condtion:', document.querySelector("#text").textContent);
   //   return document.querySelector("#text").textContent !== '';
@@ -37,15 +41,24 @@ import puppeteer from 'puppeteer';
   //   .waitForSelector('#myId')
   //   .then(() => console.log('got it'));
 
-  const body = await page.content();
+  const chapterBody = await page.content();
 
   // 1. find article area dom
-  const articleAreaDom = body.matchAll(/<div class="subtitles.*?">(?<article>.*?)<script>/gsi).next().value.groups['article'];
+  const articleAreaDom = chapterBody.matchAll(/<div class="subtitles.*?">(?<article>.*?)<script>/gsi).next().value.groups['article'];
   // console.debug('articleAreaDom:', articleAreaDom);
 
   // 2. find chapter link area doms
-  const hrefs = Array.from(articleAreaDom.matchAll(/<a.*?href="(?<href>.*?)".*?>/gsi)).map(item => item.groups['href']);
-  // console.debug('hrefs:', hrefs);
+  const hrefs = Array.from(articleAreaDom.matchAll(/<a.*?href="(?<href>.*?)".*?>/gsi)).map(item => {
+    if (item.groups['href'].startsWith('http')) {
+      return item.groups['href'];
+    };
+    return `${url.origin}${item.groups['href']}`;
+  });
+
+  // 3. start to get content
+  await page.goto(hrefs[0]);
+  const contentBody = await page.content();
+  // console.debug('contentBody:', contentBody);
 
   // debugger;
   // console.debug('body:', body);
