@@ -14,7 +14,7 @@ import puppeteer from 'puppeteer';
   // page.on('console', msg => console.log('PAGE LOG:', msg.text()));
 
   const txtUrlPromise = new Promise((res, rej) => {
-    page.on('request', interceptedRequest => {
+    const callback = interceptedRequest => {
       // if (interceptedRequest.isInterceptResolutionHandled()) return;
       // if (
       //   interceptedRequest.url().endsWith('.png') ||
@@ -28,11 +28,16 @@ import puppeteer from 'puppeteer';
       const url = interceptedRequest.url();
       if (url.startsWith('https://8book.com/txt/')) {
         // console.debug('url:', url);
+        // console.debug('1111');
+        // page.off('request', callback);
+        // console.debug('1111222');
         res(url);
         // return interceptedRequest.abort();
       }
       interceptedRequest.continue();
-    });
+    };
+
+    page.on('request', callback);
     setTimeout(rej, 1000 * 10);
   });
 
@@ -70,7 +75,35 @@ import puppeteer from 'puppeteer';
   // console.debug('txtUrl:', txtUrl);
   const response = await page.goto(txtUrl);
   const contentBuffer = await response.buffer();
-  console.debug('contentBuffer:', contentBuffer.toString('utf-8'));
+  const contentBufferText = contentBuffer.toString('utf-8');
+  // console.debug('contentBufferText:', contentBufferText);
+
+  // 4. handle text & charset
+  await page.waitForFunction(
+    contentBufferText => {
+      // const githubResponse = await fetch(
+      //   `https://api.github.com/users/${username}`
+      // );
+      // const githubUser = await githubResponse.json();
+      // // show the avatar
+      // const img = document.createElement('img');
+      // img.src = githubUser.avatar_url;
+      // // wait 3 seconds
+      // await new Promise((resolve, reject) => setTimeout(resolve, 3000));
+      // img.remove();
+      document.body.setHTML(contentBufferText);
+      return true;
+    },
+    {},
+    contentBufferText,
+  );
+  const contentBody = await page.content();
+  // console.debug('contentBody:', contentBody);
+  const bodyElement = await page.waitForSelector('body');
+  const txtContent = await bodyElement.evaluate(dom => dom.innerText);
+  // console.debug('txtContent:', txtContent);
+  fs.writeFileSync('./output.txt', txtContent);
+
   // const contentBody = await page.content();
   // const bodyElement = await page.waitForSelector('body');
   // const txtContent = await bodyElement.evaluate(dom => dom.innerText);
