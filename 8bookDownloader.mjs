@@ -27,17 +27,27 @@ import puppeteer from 'puppeteer';
 
   // Navigate the page to a URL
   // await page.goto('https://8book.com/novelbooks/138546/');
-  await page.goto('https://8book.com/read/138546/?271213');
-  await page.waitForFunction(() => {
-    console.debug('condtion:', document.querySelector("#text").textContent);
-    return document.querySelector("#text").textContent !== '';
-  }, { timeout: 10000 });
+  await page.goto('https://8book.com/novelbooks/121051/');
+  // await page.waitForFunction(() => {
+  //   console.debug('condtion:', document.querySelector("#text").textContent);
+  //   return document.querySelector("#text").textContent !== '';
+  // }, { timeout: 10000 });
 
   // page
   //   .waitForSelector('#myId')
   //   .then(() => console.log('got it'));
 
   const body = await page.content();
+
+  // 1. find article area dom
+  const articleAreaDom = body.matchAll(/<div class="subtitles.*?">(?<article>.*?)<script>/gsi).next().value.groups['article'];
+  // console.debug('articleAreaDom:', articleAreaDom);
+
+  // 2. find chapter link area doms
+  const hrefs = Array.from(articleAreaDom.matchAll(/<a.*?href="(?<href>.*?)".*?>/gsi)).map(item => item.groups['href']);
+  // console.debug('hrefs:', hrefs);
+
+  // debugger;
   // console.debug('body:', body);
 
   // format html to text
