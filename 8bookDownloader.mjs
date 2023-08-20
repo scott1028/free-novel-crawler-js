@@ -104,6 +104,8 @@ import puppeteer from 'puppeteer';
   // console.debug('txtContent:', txtContent);
   fs.writeFileSync('./output.txt', txtContent);
 
+  // WIP: new tab, ref: https://www.tutorialspoint.com/puppeteer/puppeteer_handling_tabs.htm
+
   // const contentBody = await page.content();
   // const bodyElement = await page.waitForSelector('body');
   // const txtContent = await bodyElement.evaluate(dom => dom.innerText);
