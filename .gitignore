@@ -1,7 +1,6 @@
 node_modules/
 .env
 done-*.txt
-done-*.txt.raw
 error.txt
 *.proxy
 .tmp/
