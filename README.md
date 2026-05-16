@@ -7,18 +7,37 @@
 ## 安裝
 
 ```sh
-cd refactor
+cd free-novel-crawler-js
 npm install
 ```
 
-執行前需要安裝 Playwright 內建的 Firefox：
+`npm install` 會透過 `postinstall` 讀取 `.env` 並安裝需要的 Playwright browser；
+也可以手動執行同一支安裝腳本：
 
 ```sh
-npx playwright install firefox
+node scripts/installPlaywrightBrowser.mjs
 ```
 
-Playwright 用 `firefox.launch({ headless: true })` 啟動 patched Firefox 抓頁面，
-藉此繞過 Cloudflare 的 TLS 指紋檢查。
+Playwright 預設用 `firefox.launch({ headless: true })` 啟動 patched Firefox 抓頁面，
+藉此繞過 Cloudflare 的 TLS 指紋檢查。若要改用系統已安裝的 Chrome，請建立
+`.env`：
+
+```sh
+cp .env.example .env
+```
+
+`.env.example` 預設會啟用 system Chrome：
+
+```dotenv
+BROWSER=chrome
+# BROWSER=chromium
+# BROWSER=firefox
+# BROWSER=webkit
+```
+
+`.env` 不存在或 `BROWSER` 留空時，安裝腳本和程式都會 fallback 到 `firefox`。
+若設定 `BROWSER=chrome`，安裝腳本會略過 Playwright browser 下載，程式執行時會使用
+系統已安裝的 Chrome。
 
 ## 使用
 
@@ -57,8 +76,10 @@ npm test
 
 ### 抓某些站直接拿 403
 
-從 2026-05 起本專案已全面把 HTTP 取得換成 Playwright + Firefox headless
+從 2026-05 起本專案已全面把 HTTP 取得換成 Playwright headless
 (`lib/playwrightFetcher.mjs`)，原本被 Cloudflare TLS 指紋擋掉的站台已恢復可用。
+未建立 `.env` 時預設使用 Firefox；若 `.env` 設定 `BROWSER=chrome`，會透過
+`chromium.launch({ channel: 'chrome', headless: true })` 使用系統已安裝的 Chrome。
 實測（2026-05）：
 
 | Downloader | 狀態 | 備註 |
@@ -66,9 +87,9 @@ npm test
 | `novel543Downloader` | ✅ 可用 | |
 | `timotxtDownloader` | ✅ 可用 | |
 | `8bookDownloader` | ✅ 可用 | |
-| `czDownloader` | ✅ 可用 | 改 Playwright (Firefox) 後過 CF |
-| `69shuDownloader` | ✅ 可用 | 改 Playwright (Firefox) 後過 CF；網域已搬到 `69shuba.com` |
-| `23qbDownloader` | ✅ 可用 | 改 Playwright (Firefox) 後過 CF；網域已搬到 `23qb.com` |
+| `czDownloader` | ✅ 可用 | 改 Playwright 後過 CF；當時實測使用 Firefox |
+| `69shuDownloader` | ✅ 可用 | 改 Playwright 後過 CF；當時實測使用 Firefox；網域已搬到 `69shuba.com` |
+| `23qbDownloader` | ✅ 可用 | 改 Playwright 後過 CF；當時實測使用 Firefox；網域已搬到 `23qb.com` |
 | `ixdzsDownloader` | ❌ DNS 失敗 | `tw.ixdzs.com` 連不上 |
 | `tsnwbDownloader` | ❌ DNS 失敗 | `tsnwb.org` 連不上 |
 | `quanben5Downloader` | ❌ DNS 失敗 | `big5.quanben5.com` 連不上 |
@@ -79,8 +100,8 @@ npm test
    `Sec-Fetch-*` 群組，會被當 bot。`lib/playwrightFetcher.mjs` 的
    `defaultBrowserHeaders()` 透過 `extraHTTPHeaders` 補齊。
 2. **Cloudflare 看 TLS 指紋 (JA3/JA4)** — Node 內建 `fetch` 走 undici，TLS
-   handshake 被指紋識別為「不是瀏覽器」直接 403。改走 Playwright 內建 Firefox
-   後 TLS 指紋與瀏覽器一致，可過 CF。
+   handshake 被指紋識別為「不是瀏覽器」直接 403。改走 Playwright 啟動的瀏覽器
+   後 TLS 指紋與真實瀏覽器一致，可過 CF。
 
 DNS 失敗那幾站需要先確認來源網站是否還在線，不是這個 refactor 的範圍。
 
@@ -107,9 +128,9 @@ Python 端的 `'utf-8'` / `'gbk'` / `'big5'` 等 encoding keyword **不是** JS 
 
 - 並行：Python 用 `multiprocessing.Pool`，這裡改成 `Promise + pLimit`，並發
   預設 5 (對齊 Playwright page pool 大小；過去舊預設 20 已調低)。
-- HTTP 取得：改用 Playwright + Firefox headless 取代 Node `fetch`，
-  以繞過 Cloudflare TLS 指紋檢查；對外 API (`getContent`) 與 `fetchImpl` 注入
-  介面維持相容。
+- HTTP 取得：改用 Playwright headless 取代 Node `fetch`，預設 Firefox，並可透過
+  `.env` 的 `BROWSER` 改成 system Chrome / Chromium / WebKit；對外 API
+  (`getContent`) 與 `fetchImpl` 注入介面維持相容。
 - HTML 解析：Python 端 mode 5/6/7 分別用 `html.parser` / `html5lib` / `lxml`，
   Node 端統一走 `cheerio`；CLI 參數仍接受 5/6/7。
 - `lib/proxyInjector.py` Python 端已標註 `Kept but no used for now`，未移植。
