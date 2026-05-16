@@ -23,7 +23,8 @@ const result = spawnSync(
 );
 
 if (result.error) {
-  throw result.error;
+  console.error(`[playwright] failed to spawn: ${result.error.message}`);
+  process.exit(1);
 }
 
 process.exit(result.status ?? 1);
