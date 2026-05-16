@@ -37,8 +37,7 @@ test('NovelGrabber.run() pipeline produces a done file with all chapters', async
     ['https://czbooks.net/n/uh8aj/c2', loadFixture('cz-chapter-2.html')],
   ]);
 
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = async (url) => {
+  const fetchImpl = async (url) => {
     const body = responses.get(url);
     if (!body) throw new Error(`no fixture for ${url}`);
     return {
@@ -58,6 +57,7 @@ test('NovelGrabber.run() pipeline produces a done file with all chapters', async
       promptedUrl: 'https://czbooks.net/n/uh8aj',
       promptedStart: 0,
       outputDir: dir,
+      fetchImpl,
     });
 
     assert.equal(result.title, '測試小說');
@@ -71,7 +71,6 @@ test('NovelGrabber.run() pipeline produces a done file with all chapters', async
     assert.ok(content.includes('開始'));
     assert.ok(content.includes('進行'));
   } finally {
-    globalThis.fetch = originalFetch;
     rmSync(dir, { recursive: true, force: true });
   }
 });

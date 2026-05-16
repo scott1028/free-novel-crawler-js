@@ -11,6 +11,12 @@ cd refactor
 npm install
 ```
 
+執行前需要系統已安裝 **Google Chrome stable** — Playwright 用 `channel: 'chrome'`
+(`headless` 模式) 啟動真實 Chrome 抓頁面，藉此繞過 Cloudflare 的 TLS 指紋檢查。
+若改用 Playwright 內建 Chromium，請改 `lib/playwrightFetcher.mjs` 內的
+`launch({ channel: 'chrome' })` 為 `launch({})` 並執行
+`npx playwright install chromium`。
+
 ## 使用
 
 下載某站小說：
@@ -48,37 +54,30 @@ npm test
 
 ### 抓某些站直接拿 403
 
-不是程式 bug，是站台用 Cloudflare 擋掉非瀏覽器流量。實測（2026-05）：
+從 2026-05 起本專案已全面把 HTTP 取得換成 Playwright + chrome-stable headless
+(`lib/playwrightFetcher.mjs`)，原本被 Cloudflare TLS 指紋擋掉的站台已恢復可用。
+實測（2026-05）：
 
-| Downloader | 狀態 | 根因 |
+| Downloader | 狀態 | 備註 |
 | --- | --- | --- |
-| `novel543Downloader` | ✅ 可用 | header 補齊後可過 CF |
-| `timotxtDownloader` | ✅ 可用 | header 補齊後可過 CF |
-| `8bookDownloader` | ✅ 可用 | header 補齊後可過 CF |
-| `czDownloader` | ❌ 403 | Cloudflare 看 TLS 指紋擋，header 沒救 |
-| `69shuDownloader` | ❌ 403 | 同上，且網域已搬到 `69shuba.com` |
-| `23qbDownloader` | ❌ 403 | 同上，且網域已搬到 `23qb.com` |
+| `novel543Downloader` | ✅ 可用 | |
+| `timotxtDownloader` | ✅ 可用 | |
+| `8bookDownloader` | ✅ 可用 | |
+| `czDownloader` | ✅ 可用 | 改 playwright 後過 CF |
+| `69shuDownloader` | ✅ 可用 | 改 playwright 後過 CF；網域已搬到 `69shuba.com` |
+| `23qbDownloader` | ✅ 可用 | 改 playwright 後過 CF；網域已搬到 `23qb.com` |
 | `ixdzsDownloader` | ❌ DNS 失敗 | `tw.ixdzs.com` 連不上 |
 | `tsnwbDownloader` | ❌ DNS 失敗 | `tsnwb.org` 連不上 |
 | `quanben5Downloader` | ❌ DNS 失敗 | `big5.quanben5.com` 連不上 |
 
-兩種獨立成因：
+歷史背景（保留供 incident 追溯）：
 
 1. **Header 太陽春** — 只送 `User-Agent` 而少了 `Accept` / `Accept-Language` /
-   `Sec-Fetch-*` 群組，會被當 bot。`lib/http.mjs` 的 `defaultBrowserHeaders()`
-   已補齊（對應 Chrome 75 時代的 header 集合）。修完這個 novel543 / timotxt /
-   8book 立刻能跑。
+   `Sec-Fetch-*` 群組，會被當 bot。`lib/playwrightFetcher.mjs` 的
+   `defaultBrowserHeaders()` 透過 `extraHTTPHeaders` 補齊。
 2. **Cloudflare 看 TLS 指紋 (JA3/JA4)** — Node 內建 `fetch` 走 undici，TLS
-   handshake 被指紋識別為「不是瀏覽器」直接 403。Python 的 `urllib` 也有相同
-   問題；header 怎麼改都沒用。
-
-**TLS 指紋擋的解法**（任一）：
-
-- 用 `curl-impersonate` / `curl_cffi` 之類偽裝瀏覽器 TLS 指紋的 client，替換
-  `lib/http.mjs` 裡 `fetchImpl` 的實作。
-- 走 Playwright / Puppeteer 用真實 Chromium 抓頁面，再餵 HTML 給
-  `contentHandle()`。
-- 經由能繞 CF 的 proxy / scraping API（FlareSolverr 等）。
+   handshake 被指紋識別為「不是瀏覽器」直接 403。改走真實 chrome-stable
+   後 TLS 指紋與瀏覽器一致，可過 CF。
 
 DNS 失敗那幾站需要先確認來源網站是否還在線，不是這個 refactor 的範圍。
 
@@ -103,8 +102,11 @@ Python 端的 `'utf-8'` / `'gbk'` / `'big5'` 等 encoding keyword **不是** JS 
 
 ## 與 Python 版差異
 
-- 並行：Python 用 `multiprocessing.Pool`，這裡改成 `Promise + pLimit`（純 I/O
-  bound，差不多）。
+- 並行：Python 用 `multiprocessing.Pool`，這裡改成 `Promise + pLimit`，並發
+  預設 5 (對齊 Playwright page pool 大小；過去舊預設 20 已調低)。
+- HTTP 取得：改用 Playwright + chrome-stable headless 取代 Node `fetch`，
+  以繞過 Cloudflare TLS 指紋檢查；對外 API (`getContent`) 與 `fetchImpl` 注入
+  介面維持相容。
 - HTML 解析：Python 端 mode 5/6/7 分別用 `html.parser` / `html5lib` / `lxml`，
   Node 端統一走 `cheerio`；CLI 參數仍接受 5/6/7。
 - `lib/proxyInjector.py` Python 端已標註 `Kept but no used for now`，未移植。
