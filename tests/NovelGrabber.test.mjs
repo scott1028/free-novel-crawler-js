@@ -29,15 +29,8 @@ function loadFixture(name) {
   return readFileSync(join(HERE, 'fixtures', name), 'utf-8');
 }
 
-test('NovelGrabber.run() pipeline produces a done file with all chapters', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'grabber-'));
-  const responses = new Map([
-    ['https://czbooks.net/n/uh8aj', loadFixture('cz-index.html')],
-    ['https://czbooks.net/n/uh8aj/c1', loadFixture('cz-chapter-1.html')],
-    ['https://czbooks.net/n/uh8aj/c2', loadFixture('cz-chapter-2.html')],
-  ]);
-
-  const fetchImpl = async (url) => {
+function createFixtureFetch(responses) {
+  return async (url) => {
     const body = responses.get(url);
     if (!body) throw new Error(`no fixture for ${url}`);
     return {
@@ -47,6 +40,53 @@ test('NovelGrabber.run() pipeline produces a done file with all chapters', async
       arrayBuffer: async () => new Uint8Array(Buffer.from(body, 'utf-8')).buffer,
     };
   };
+}
+
+async function assertDebugDump({
+  grabber,
+  responses,
+  expectedMessage,
+  expectedFileKeyword,
+  expectedHtmlSnippet,
+}) {
+  const dir = mkdtempSync(join(tmpdir(), 'grabber-debug-'));
+
+  try {
+    await assert.rejects(
+      grabber.run({
+        workerNum: 2,
+        sleepMs: 0,
+        maxTries: 1,
+        promptedUrl: 'https://czbooks.net/n/uh8aj',
+        promptedStart: 0,
+        outputDir: dir,
+        debugDumpDir: dir,
+        fetchImpl: createFixtureFetch(responses),
+      }),
+      (error) => {
+        assert.match(error.message, expectedMessage);
+        assert.match(error.message, /Debug HTML dumped to/);
+        return true;
+      }
+    );
+
+    const dumpedFiles = readdirSync(dir).filter((file) => file.endsWith('.html'));
+    assert.equal(dumpedFiles.length, 1);
+    assert.match(dumpedFiles[0], expectedFileKeyword);
+    const dumpedHtml = readFileSync(join(dir, dumpedFiles[0]), 'utf-8');
+    assert.match(dumpedHtml, expectedHtmlSnippet);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test('NovelGrabber.run() pipeline produces a done file with all chapters', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'grabber-'));
+  const responses = new Map([
+    ['https://czbooks.net/n/uh8aj', loadFixture('cz-index.html')],
+    ['https://czbooks.net/n/uh8aj/c1', loadFixture('cz-chapter-1.html')],
+    ['https://czbooks.net/n/uh8aj/c2', loadFixture('cz-chapter-2.html')],
+  ]);
 
   try {
     const grabber = new CzNovelGrabber({ TXTENCODE: 'utf-8' });
@@ -57,7 +97,8 @@ test('NovelGrabber.run() pipeline produces a done file with all chapters', async
       promptedUrl: 'https://czbooks.net/n/uh8aj',
       promptedStart: 0,
       outputDir: dir,
-      fetchImpl,
+      debugDumpDir: dir,
+      fetchImpl: createFixtureFetch(responses),
     });
 
     assert.equal(result.title, '測試小說');
@@ -73,6 +114,60 @@ test('NovelGrabber.run() pipeline produces a done file with all chapters', async
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('NovelGrabber dumps index HTML when title regex misses', async () => {
+  class MissingTitleGrabber extends CzNovelGrabber {
+    getTitleReg() { return /<span class="missing-title">(?<title>.*?)<\/span>/s; }
+  }
+
+  await assertDebugDump({
+    grabber: new MissingTitleGrabber({ TXTENCODE: 'utf-8' }),
+    responses: new Map([
+      ['https://czbooks.net/n/uh8aj', loadFixture('cz-index.html')],
+    ]),
+    expectedMessage: /Title not found/,
+    expectedFileKeyword: /index-title-miss/,
+    expectedHtmlSnippet: /測試小說/,
+  });
+});
+
+test('NovelGrabber dumps index HTML when article regex misses', async () => {
+  class MissingArticleGrabber extends CzNovelGrabber {
+    getArticleAreaReg() {
+      return /<ul.*?id="missing-list".*?>.*?(?<article>.*?)<\/ul>/s;
+    }
+  }
+
+  await assertDebugDump({
+    grabber: new MissingArticleGrabber({ TXTENCODE: 'utf-8' }),
+    responses: new Map([
+      ['https://czbooks.net/n/uh8aj', loadFixture('cz-index.html')],
+    ]),
+    expectedMessage: /Article area not found/,
+    expectedFileKeyword: /index-article-miss/,
+    expectedHtmlSnippet: /chapter-list/,
+  });
+});
+
+test('NovelGrabber dumps chapter HTML and fails fast when content regex misses', async () => {
+  class MissingContentGrabber extends CzNovelGrabber {
+    getNovelContentReg() {
+      return /<div.*?class.*?=.*?"missing-content".*?>(?<content>.*?)<\/div>/s;
+    }
+  }
+
+  await assertDebugDump({
+    grabber: new MissingContentGrabber({ TXTENCODE: 'utf-8' }),
+    responses: new Map([
+      ['https://czbooks.net/n/uh8aj', loadFixture('cz-index.html')],
+      ['https://czbooks.net/n/uh8aj/c1', loadFixture('cz-chapter-1.html')],
+      ['https://czbooks.net/n/uh8aj/c2', loadFixture('cz-chapter-2.html')],
+    ]),
+    expectedMessage: /Novel content not found/,
+    expectedFileKeyword: /chapter-content-miss/,
+    expectedHtmlSnippet: /開始/,
+  });
 });
 
 test('NovelGrabber throws when subclass missing implementation', () => {
