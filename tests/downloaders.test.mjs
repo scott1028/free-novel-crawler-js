@@ -38,3 +38,42 @@ for (const { file, cls } of modules) {
     }
   });
 }
+
+test('TimotxtNovelGrabber article regex matches the updated directory layout', async () => {
+  const { TimotxtNovelGrabber } = await import('../timotxtDownloader.mjs');
+  const inst = new TimotxtNovelGrabber();
+  const html = `
+    <nav class="breadcrumb" aria-label="breadcrumbs">
+      <ul>
+        <li class="is-active">
+          <a href="#" aria-current="page">高武：登錄未來一萬年</a>
+        </li>
+      </ul>
+    </nav>
+    <div class="chaplist">
+      <div class="header has-btn">
+        <h3><span>高武：登錄未來一萬年全部章节</span></h3>
+        <button class="button is-small is-danger is-outlined reverse">
+          <span>正序</span>
+        </button>
+      </div>
+      <ul class="flex one two-700 three-900 all">
+        <li><a rel="nofollow" href="/2105128652/1.html">上架感言加承諾書</a></li>
+        <li><a rel="nofollow" href="/2105128652/2.html">001.噩夢</a></li>
+      </ul>
+    </div>
+    <footer class="py-5 footer"></footer>
+  `;
+
+  const titleMatch = inst.getTitleReg().exec(html);
+  assert.equal(titleMatch?.groups?.title, '高武：登錄未來一萬年');
+
+  const articleMatch = inst.getArticleAreaReg().exec(html);
+  assert.ok(articleMatch, 'expected updated timotxt article area to match');
+  const article = articleMatch.groups.article;
+  assert.match(article, /2105128652\/1\.html/);
+  assert.match(article, /2105128652\/2\.html/);
+
+  const urls = [...article.matchAll(inst.getChapterUrlsReg())].map((match) => match.groups.url);
+  assert.deepEqual(urls, ['/2105128652/1.html', '/2105128652/2.html']);
+});

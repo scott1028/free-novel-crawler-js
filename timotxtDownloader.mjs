@@ -6,7 +6,7 @@ export class TimotxtNovelGrabber extends NovelGrabber {
     return /<a.*?href=".*?".*?aria-current="page".*?>(?<title>.*?)<\/a>/s;
   }
   getArticleAreaReg() {
-    return /<div.*?class="header.*?has-btn">.*?(?<article>.*?)<\/ul><div.*?class="gadBlock"/s;
+    return /<div.*?class="header.*?has-btn".*?>.*?全部章节.*?<\/div>\s*<ul.*?class=".*?\ball\b.*?".*?>(?<article>.*?)<\/ul>/s;
   }
   getChapterUrlsReg() {
     return /<li><a.*?href.*?="(?<url>.*?)".*?>.*?<\/li>/gm;
