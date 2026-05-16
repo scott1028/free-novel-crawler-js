@@ -1,0 +1,6 @@
+node_modules/
+done-*.txt
+done-*.txt.raw
+error.txt
+*.proxy
+.tmp/
