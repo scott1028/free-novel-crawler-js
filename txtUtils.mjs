@@ -84,8 +84,8 @@ export async function runTxtUtils(opts = {}) {
 
   let encoding = encodingOverride;
   let concat = concatOverride;
-  if (encoding == null) encoding = (await askLine('encoding?')).trim();
-  if (concat == null) concat = (await askLine('concat?')).trim();
+  if (encoding == null) encoding = (await askLine('encoding? ')).trim();
+  if (concat == null) concat = (await askLine('concat? ')).trim();
   if (!encoding) encoding = 'utf-8';
   concat = (concat ?? '').toUpperCase();
 

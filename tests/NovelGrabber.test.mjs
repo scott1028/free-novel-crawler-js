@@ -4,6 +4,7 @@ import { readFileSync, mkdtempSync, rmSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import readline from 'node:readline/promises';
 
 import { NovelGrabber } from '../lib/NovelGrabber.mjs';
 
@@ -57,6 +58,8 @@ async function assertDebugDump({
         workerNum: 2,
         sleepMs: 0,
         maxTries: 1,
+        delayMs: 0,
+        randomDelayMs: 0,
         promptedUrl: 'https://czbooks.net/n/uh8aj',
         promptedStart: 0,
         outputDir: dir,
@@ -94,6 +97,8 @@ test('NovelGrabber.run() pipeline produces a done file with all chapters', async
       workerNum: 2,
       sleepMs: 0,
       maxTries: 1,
+      delayMs: 0,
+      randomDelayMs: 0,
       promptedUrl: 'https://czbooks.net/n/uh8aj',
       promptedStart: 0,
       outputDir: dir,
@@ -114,6 +119,51 @@ test('NovelGrabber.run() pipeline produces a done file with all chapters', async
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('NovelGrabber._prompt() asks crawler runtime options and defaults blank values', async (t) => {
+  const prompts = [];
+  let closed = false;
+  const answers = [
+    'https://czbooks.net/n/uh8aj',
+    '',
+    '',
+    '',
+    '',
+  ];
+
+  t.mock.method(readline, 'createInterface', () => ({
+    question: async (prompt) => {
+      prompts.push(prompt);
+      return answers.shift();
+    },
+    close: () => {
+      closed = true;
+    },
+  }));
+
+  const grabber = new CzNovelGrabber({ TXTENCODE: 'utf-8' });
+  const result = await grabber._prompt({
+    defaultWorkerNum: 1,
+    defaultDelayMs: 3000,
+    defaultRandomDelayMs: 3000,
+  });
+
+  assert.deepEqual(prompts, [
+    'target url? ',
+    'Get From [n:]? ( To skip when you type empty string, `-5 -> [-5:]` ) ',
+    'parallel? (default: 1) ',
+    'delayMs? (default: 3000) ',
+    'randomDelayMs? (default: 3000) ',
+  ]);
+  assert.deepEqual(result, {
+    url: 'https://czbooks.net/n/uh8aj',
+    retriveStart: 0,
+    workerNum: 1,
+    delayMs: 3000,
+    randomDelayMs: 3000,
+  });
+  assert.equal(closed, true);
 });
 
 test('NovelGrabber dumps index HTML when title regex misses', async () => {

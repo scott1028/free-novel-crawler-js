@@ -47,9 +47,14 @@ BROWSER=chrome
 node czDownloader.mjs
 # target url? https://czbooks.net/n/uh8aj
 # Get From [n:]? (空字串=全抓)
+# parallel? (default: 1) 1
+# delayMs? (default: 3000) 3000
+# randomDelayMs? (default: 3000) 1000
 ```
 
-對應 Python 版的 13 個 `*Downloader.py`，互動流程一致。
+`parallel` 控制章節下載並行數；`delayMs` 是每次派發章節下載前的固定延遲；
+`randomDelayMs` 會再加上一段 `0` 到該值之間的隨機延遲。以上問題輸入空字串時會使用
+提示中的預設值。
 
 本地檔案後處理（對應 `txtUtils.py`）：
 
@@ -127,7 +132,7 @@ Python 端的 `'utf-8'` / `'gbk'` / `'big5'` 等 encoding keyword **不是** JS 
 ## 與 Python 版差異
 
 - 並行：Python 用 `multiprocessing.Pool`，這裡改成 `Promise + pLimit`，並發
-  預設 5 (對齊 Playwright page pool 大小；過去舊預設 20 已調低)。
+  預設 1，可在 crawler 互動流程輸入 `parallel` 調整。
 - HTTP 取得：改用 Playwright headless 取代 Node `fetch`，預設 Firefox，並可透過
   `.env` 的 `BROWSER` 改成 system Chrome / Chromium / WebKit；對外 API
   (`getContent`) 與 `fetchImpl` 注入介面維持相容。

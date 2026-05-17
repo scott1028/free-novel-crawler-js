@@ -25,7 +25,7 @@ export class BiqugeNovelGrabber extends NovelGrabber {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const defaultEncode = 'gbk';
   const rl = readline.createInterface({ input: stdin, output: stdout });
-  const ans = (await rl.question(`encode? (default: ${defaultEncode})`)).trim();
+  const ans = (await rl.question(`encode? (default: ${defaultEncode}) `)).trim();
   rl.close();
   const encode = ans || defaultEncode;
   console.log('encode:', encode);
