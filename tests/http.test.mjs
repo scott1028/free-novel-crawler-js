@@ -75,6 +75,12 @@ test('getContent gives up and writes ERROR after max retries', async () => {
   }
 });
 
+test('getContent with _delayMs in options works normally', async () => {
+  const fetchImpl = async () => makeResponse(Buffer.from('hello'));
+  const out = await getContent('https://example.com/x', { encoding: null, fetchImpl, _delayMs: 5000 });
+  assert.equal(out.toString(), 'hello');
+});
+
 test('getContent accumulates cookies per host', async () => {
   __internal.COOKIE_JAR.clear();
   let lastHeaders;
