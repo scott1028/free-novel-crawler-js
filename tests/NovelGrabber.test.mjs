@@ -89,6 +89,9 @@ test('NovelGrabber.run() pipeline produces a done file with all chapters', async
     ['https://czbooks.net/n/uh8aj', loadFixture('cz-index.html')],
     ['https://czbooks.net/n/uh8aj/c1', loadFixture('cz-chapter-1.html')],
     ['https://czbooks.net/n/uh8aj/c2', loadFixture('cz-chapter-2.html')],
+    ['https://czbooks.net/n/uh8aj/c3', loadFixture('cz-chapter-3.html')],
+    ['https://czbooks.net/n/uh8aj/c4', loadFixture('cz-chapter-4.html')],
+    ['https://czbooks.net/n/uh8aj/c5', loadFixture('cz-chapter-5.html')],
   ]);
 
   try {
@@ -107,15 +110,15 @@ test('NovelGrabber.run() pipeline produces a done file with all chapters', async
     });
 
     assert.equal(result.title, '測試小說');
-    assert.equal(result.chapters, 2);
+    assert.equal(result.chapters, 5);
 
     const [file] = readdirSync(dir).filter((f) => f.startsWith('done-'));
     assert.ok(file, 'expected done- file');
     const content = readFileSync(join(dir, file), 'utf-8');
     assert.ok(content.includes('第1回'));
-    assert.ok(content.includes('第2回'));
-    assert.ok(content.includes('開始'));
-    assert.ok(content.includes('進行'));
+    assert.ok(content.includes('第5回'));
+    assert.ok(content.includes('故事就此展開'));
+    assert.ok(content.includes('故事暫告一段落'));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -126,6 +129,7 @@ test('NovelGrabber._prompt() asks crawler runtime options and defaults blank val
   let closed = false;
   const answers = [
     'https://czbooks.net/n/uh8aj',
+    '',
     '',
     '',
     '',
@@ -151,14 +155,16 @@ test('NovelGrabber._prompt() asks crawler runtime options and defaults blank val
 
   assert.deepEqual(prompts, [
     'target url? ',
-    'Get From [n:]? ( To skip when you type empty string, `-5 -> [-5:]` ) ',
+    'Start pageNo from [n:]? (empty=1, default=1, ex: -3 -> [..., n-2, n-1, n]) ',
+    'End pageNo to [:m]? (empty=no limit, default=null, ex: -2 -> [...skipped, m-2, m-1, m]) ',
     'parallel? (default: 1) ',
     'delayMs? (default: 3000) ',
     'randomDelayMs? (default: 3000) ',
   ]);
   assert.deepEqual(result, {
     url: 'https://czbooks.net/n/uh8aj',
-    retriveStart: 0,
+    retriveStart: 1,
+    retriveStop: null,
     workerNum: 1,
     delayMs: 3000,
     randomDelayMs: 3000,
@@ -217,6 +223,116 @@ test('NovelGrabber dumps chapter HTML and fails fast when content regex misses',
     expectedMessage: /Novel content not found/,
     expectedFileKeyword: /chapter-content-miss/,
     expectedHtmlSnippet: /開始/,
+  });
+});
+
+const SLICE_FIXTURES = new Map([
+  ['https://czbooks.net/n/uh8aj', loadFixture('cz-index.html')],
+  ['https://czbooks.net/n/uh8aj/c1', loadFixture('cz-chapter-1.html')],
+  ['https://czbooks.net/n/uh8aj/c2', loadFixture('cz-chapter-2.html')],
+  ['https://czbooks.net/n/uh8aj/c3', loadFixture('cz-chapter-3.html')],
+  ['https://czbooks.net/n/uh8aj/c4', loadFixture('cz-chapter-4.html')],
+  ['https://czbooks.net/n/uh8aj/c5', loadFixture('cz-chapter-5.html')],
+]);
+
+async function assertSlice({ retriveStart, retriveStop, expectedPresent = [], expectedAbsent = [] }) {
+  const dir = mkdtempSync(join(tmpdir(), 'novelgrabber-slice-'));
+  try {
+    // Use same base URL prefix as parent so protocol-relative hrefs concat correctly:
+    // https: + //czbooks.net/n/uh8aj/c1 → https://czbooks.net/n/uh8aj/c1
+    class SliceGrabber extends CzNovelGrabber {
+      getBaseNovelLinkUrlPrefix() { return 'https:'; }
+    }
+    const grabber = new SliceGrabber({ TXTENCODE: 'utf-8' });
+    await grabber.run({
+      url: 'https://czbooks.net/n/uh8aj',
+      fetchImpl: createFixtureFetch(SLICE_FIXTURES),
+      retriveStart,
+      retriveStop,
+      outputDir: dir,
+      workerNum: 1,
+      delayMs: 0,
+      randomDelayMs: 0,
+    });
+    const [file] = readdirSync(dir).filter(f => f.startsWith('done-'));
+    const content = readFileSync(join(dir, file), 'utf-8');
+    for (const kw of expectedPresent) {
+      assert.ok(content.includes(kw), `expected "${kw}" in output`);
+    }
+    for (const kw of expectedAbsent) {
+      assert.ok(!content.includes(kw), `expected "${kw}" not in output`);
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+
+test('NovelGrabber slicing: all chapters (start=1, stop=null)', async () => {
+  await assertSlice({
+    retriveStart: 1,
+    retriveStop: null,
+    expectedPresent: ['第一章', '第五章'],
+  });
+});
+
+test('NovelGrabber slicing: skip first chapter (start=2, stop=null)', async () => {
+  await assertSlice({
+    retriveStart: 2,
+    retriveStop: null,
+    expectedPresent: ['第二章', '第五章'],
+    expectedAbsent: ['第一章'],
+  });
+});
+
+test('NovelGrabber slicing: only first chapter (start=1, stop=1)', async () => {
+  await assertSlice({
+    retriveStart: 1,
+    retriveStop: 1,
+    expectedPresent: ['第一章'],
+    expectedAbsent: ['第二章'],
+  });
+});
+
+test('NovelGrabber slicing: first two chapters (start=1, stop=2)', async () => {
+  await assertSlice({
+    retriveStart: 1,
+    retriveStop: 2,
+    expectedPresent: ['第一章', '第二章'],
+    expectedAbsent: ['第三章'],
+  });
+});
+
+test('NovelGrabber slicing: last chapter only (start=-1, stop=null)', async () => {
+  await assertSlice({
+    retriveStart: -1,
+    retriveStop: null,
+    expectedPresent: ['第五章'],
+    expectedAbsent: ['第四章'],
+  });
+});
+
+test('NovelGrabber slicing: except last chapter (start=1, stop=-1)', async () => {
+  await assertSlice({
+    retriveStart: 1,
+    retriveStop: -1,
+    expectedPresent: ['第一章', '第四章'],
+    expectedAbsent: ['第五章'],
+  });
+});
+
+test('NovelGrabber slicing: range with negative indices (start=-2, stop=-1)', async () => {
+  await assertSlice({
+    retriveStart: -2,
+    retriveStop: -1,
+    expectedPresent: ['第四章'],
+    expectedAbsent: ['第三章', '第五章'],
+  });
+});
+
+test('NovelGrabber slicing: start=3, stop=-1', async () => {
+  await assertSlice({
+    retriveStart: 3,
+    retriveStop: -1,
+    expectedPresent: ['第三章', '第四章'],
+    expectedAbsent: ['第二章', '第五章'],
   });
 });
 

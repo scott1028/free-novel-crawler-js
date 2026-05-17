@@ -46,7 +46,8 @@ BROWSER=chrome
 ```sh
 node czDownloader.mjs
 # target url? https://czbooks.net/n/uh8aj
-# Get From [n:]? (空字串=全抓)
+# Start pageNo from [n:]? (empty=1, default=1, ex: -3 -> [..., n-2, n-1, n])
+# End pageNo to [:m]? (empty=no limit, default=null, ex: -2 -> [...skipped, m-2, m-1, m])
 # parallel? (default: 1) 1
 # delayMs? (default: 3000) 3000
 # randomDelayMs? (default: 3000) 1000
