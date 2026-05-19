@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import readline from 'node:readline/promises';
 
 import { NovelGrabber } from '../lib/NovelGrabber.mjs';
+import { IxdzsNovelGrabber } from '../ixdzsDownloader.mjs';
 
 console.log = () => {};
 
@@ -119,6 +120,45 @@ test('NovelGrabber.run() pipeline produces a done file with all chapters', async
     assert.ok(content.includes('第5回'));
     assert.ok(content.includes('故事就此展開'));
     assert.ok(content.includes('故事暫告一段落'));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('IxdzsNovelGrabber.run() uses the novel catalog endpoint and parses chapters', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ixdzs-grabber-'));
+  const responses = new Map([
+    ['https://ixdzs.tw/read/170541/', loadFixture('ixdzs-index.html')],
+    ['https://ixdzs.tw/novel/html/?bid=170541', loadFixture('ixdzs-catalog.html')],
+    ['https://ixdzs.tw/read/170541/p1.html', loadFixture('ixdzs-chapter-1.html')],
+    ['https://ixdzs.tw/read/170541/p2.html', loadFixture('ixdzs-chapter-2.html')],
+  ]);
+
+  try {
+    const grabber = new IxdzsNovelGrabber({ TXTENCODE: 'utf-8' });
+    const result = await grabber.run({
+      workerNum: 1,
+      sleepMs: 0,
+      maxTries: 1,
+      delayMs: 0,
+      randomDelayMs: 0,
+      promptedUrl: 'https://ixdzs.tw/read/170541/',
+      promptedStart: 0,
+      outputDir: dir,
+      debugDumpDir: dir,
+      fetchImpl: createFixtureFetch(responses),
+    });
+
+    assert.equal(result.title, '都市仙王');
+    assert.equal(result.chapters, 2);
+
+    const [file] = readdirSync(dir).filter((f) => f.startsWith('done-'));
+    assert.ok(file, 'expected done- file');
+    const content = readFileSync(join(dir, file), 'utf-8');
+    assert.ok(content.includes('第1回'));
+    assert.ok(content.includes('第2回'));
+    assert.ok(content.includes('第一章內容'));
+    assert.ok(content.includes('第二章內容'));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

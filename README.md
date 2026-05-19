@@ -96,7 +96,7 @@ npm test
 | `czDownloader` | ✅ 可用 | 改 Playwright 後過 CF；當時實測使用 Firefox |
 | `69shuDownloader` | ✅ 可用 | 改 Playwright 後過 CF；當時實測使用 Firefox；網域已搬到 `69shuba.com` |
 | `23qbDownloader` | ✅ 可用 | 改 Playwright 後過 CF；當時實測使用 Firefox；網域已搬到 `23qb.com` |
-| `ixdzsDownloader` | ❌ DNS 失敗 | `tw.ixdzs.com` 連不上 |
+| `ixdzsDownloader` | ⚠️ 網域已搬遷 | 原 `tw.ixdzs.com` 已改為 `ixdzs.tw`（例：`https://ixdzs.tw/read/170541/`） |
 | `tsnwbDownloader` | ❌ DNS 失敗 | `tsnwb.org` 連不上 |
 | `quanben5Downloader` | ❌ DNS 失敗 | `big5.quanben5.com` 連不上 |
 
