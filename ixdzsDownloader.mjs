@@ -17,6 +17,11 @@ function createSyntheticResponse(html) {
   };
 }
 
+function hasChapterItems(html) {
+  if (typeof html !== 'string' || html.length === 0) return false;
+  return /<li[^>]*>\s*<a[^>]*href="\/read\/\d+\/p\d+\.html"/i.test(html);
+}
+
 export class IxdzsNovelGrabber extends NovelGrabber {
   getTitleReg() {
     return /<div.*?class="n-text".*?>.*?<h1>(?<title>.*?)<\/h1>/s;
@@ -51,9 +56,31 @@ export class IxdzsNovelGrabber extends NovelGrabber {
         ?? /\/read\/(?<bid>\d+)\/?$/.exec(url);
       if (!bidMatch?.groups?.bid) return response;
 
-      const listUrl = `${new URL(url).origin}/novel/html/?bid=${bidMatch.groups.bid}`;
-      const listResponse = await baseFetchImpl(listUrl, init);
-      const listHtml = await responseToHtml(listResponse);
+      const origin = new URL(url).origin;
+      const bid = bidMatch.groups.bid;
+      const listGetUrl = `${origin}/novel/html/?bid=${bid}`;
+      let listResponse = await baseFetchImpl(listGetUrl, init);
+      let listHtml = await responseToHtml(listResponse);
+
+      if (!hasChapterItems(listHtml)) {
+        const listPostUrl = `${origin}/novel/html/`;
+        listResponse = await baseFetchImpl(listPostUrl, {
+          ...init,
+          method: 'POST',
+          headers: {
+            ...(init?.headers ?? {}),
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          },
+          body: `bid=${encodeURIComponent(bid)}`,
+        });
+        listHtml = await responseToHtml(listResponse);
+      }
+
+      if (!hasChapterItems(listHtml)) {
+        indexCache.set(url, response);
+        return response;
+      }
+
       const enrichedHtml = indexHtml.replace(
         /<ul class="u-chapter cfirst">[\s\S]*?<\/ul>/,
         `<ul class="u-chapter cfirst">${listHtml}</ul>`

@@ -32,13 +32,15 @@ function loadFixture(name) {
 }
 
 function createFixtureFetch(responses) {
-  return async (url) => {
-    const body = responses.get(url);
-    if (!body) throw new Error(`no fixture for ${url}`);
+  return async (url, init = {}) => {
+    const method = String(init.method ?? 'GET').toUpperCase();
+    const body = responses.get(`${method} ${url}`) ?? responses.get(url);
+    if (body === undefined) throw new Error(`no fixture for ${method} ${url}`);
     return {
       ok: true,
       status: 200,
       headers: { getSetCookie: () => [] },
+      __decoded: body,
       arrayBuffer: async () => new Uint8Array(Buffer.from(body, 'utf-8')).buffer,
     };
   };
@@ -129,7 +131,9 @@ test('IxdzsNovelGrabber.run() uses the novel catalog endpoint and parses chapter
   const dir = mkdtempSync(join(tmpdir(), 'ixdzs-grabber-'));
   const responses = new Map([
     ['https://ixdzs.tw/read/170541/', loadFixture('ixdzs-index.html')],
-    ['https://ixdzs.tw/novel/html/?bid=170541', loadFixture('ixdzs-catalog.html')],
+    ['https://ixdzs.tw/read/170541', loadFixture('ixdzs-index.html')],
+    ['GET https://ixdzs.tw/novel/html/?bid=170541', ''],
+    ['POST https://ixdzs.tw/novel/html/', loadFixture('ixdzs-catalog.html')],
     ['https://ixdzs.tw/read/170541/p1.html', loadFixture('ixdzs-chapter-1.html')],
     ['https://ixdzs.tw/read/170541/p2.html', loadFixture('ixdzs-chapter-2.html')],
   ]);
