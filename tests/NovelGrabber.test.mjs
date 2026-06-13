@@ -127,6 +127,42 @@ test('NovelGrabber.run() pipeline produces a done file with all chapters', async
   }
 });
 
+test('NovelGrabber.run() passes waitUntil to index and chapter fetches', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'grabber-wait-'));
+  const responses = new Map([
+    ['https://czbooks.net/n/uh8aj', loadFixture('cz-index.html')],
+    ['https://czbooks.net/n/uh8aj/c1', loadFixture('cz-chapter-1.html')],
+  ]);
+  const waitUntilByUrl = new Map();
+  const fetchImpl = async (url, init = {}) => {
+    waitUntilByUrl.set(url, init.__waitUntil);
+    return createFixtureFetch(responses)(url, init);
+  };
+
+  try {
+    const grabber = new CzNovelGrabber({ TXTENCODE: 'utf-8' });
+    await grabber.run({
+      workerNum: 1,
+      sleepMs: 0,
+      maxTries: 1,
+      waitUntil: 'commit',
+      delayMs: 0,
+      randomDelayMs: 0,
+      promptedUrl: 'https://czbooks.net/n/uh8aj',
+      promptedStart: 1,
+      promptedStop: 1,
+      outputDir: dir,
+      debugDumpDir: dir,
+      fetchImpl,
+    });
+
+    assert.equal(waitUntilByUrl.get('https://czbooks.net/n/uh8aj'), 'commit');
+    assert.equal(waitUntilByUrl.get('https://czbooks.net/n/uh8aj/c1'), 'commit');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('IxdzsNovelGrabber.run() uses the novel catalog endpoint and parses chapters', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'ixdzs-grabber-'));
   const responses = new Map([

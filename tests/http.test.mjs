@@ -81,6 +81,21 @@ test('getContent with _delayMs in options works normally', async () => {
   assert.equal(out.toString(), 'hello');
 });
 
+test('getContent passes waitUntil to fetchImpl', async () => {
+  let receivedWaitUntil;
+  const fetchImpl = async (_url, init) => {
+    receivedWaitUntil = init.__waitUntil;
+    return makeResponse(Buffer.from('hello'));
+  };
+  const out = await getContent('https://example.com/wait', {
+    encoding: null,
+    fetchImpl,
+    waitUntil: 'commit',
+  });
+  assert.equal(out.toString(), 'hello');
+  assert.equal(receivedWaitUntil, 'commit');
+});
+
 test('getContent accumulates cookies per host', async () => {
   __internal.COOKIE_JAR.clear();
   let lastHeaders;
